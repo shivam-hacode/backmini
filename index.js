@@ -5,13 +5,31 @@ const cors = require('cors');
 const router = require('./src/router/resultRoutes.js');
 
 const loginrouter = require('./src/router/authRouter.js');
+const appConfigRouter = require('./src/router/appConfigRouter.js');
+const versionCheckMiddleware = require('./src/middleware/versionMiddleware.js');
 const Result2 = require('./src/models/ScrapperResultModel.js');
+const moment = require('moment');
 require('./src/config/dbconnect.js');
 require('./src/scheduler.js');
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// App config endpoint - must be accessible without version check
+app.use('/api', appConfigRouter);
+
+// Version check middleware - applies to all routes except /app-config
+app.use('/api', (req, res, next) => {
+	// Skip version check for app-config endpoint
+	// Check both path (relative) and originalUrl (absolute) for robustness
+	if (req.path === '/app-config' || req.originalUrl === '/api/app-config') {
+		return next();
+	}
+	// Apply version check for all other routes
+	versionCheckMiddleware(req, res, next);
+});
+
 app.use('/api', router);
 app.use('/api', loginrouter);
 
@@ -109,6 +127,9 @@ app.post('/api/upload-data', async (req, res) => {
 	}
 });	
 
-app.listen(5000);
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+	console.log(`Server running on port ${PORT}`);
+});
 
 module.exports = app;
